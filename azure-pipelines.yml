@@ -88,23 +88,7 @@ stages:
       # Ref: https://devdocs.magento.com/cloud/deploy/cloud-deployment-process.html
       - publish: $(System.DefaultWorkingDirectory)/magento2
         artifact: app
-- stage: SonarQube
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
-  displayName: Run Security Checks
-  jobs:  
-  - job: Scan
-    pool:
-      vmImage: $(vmImageName)
-    steps:
-      - task: SonarQubePrepare@4
-        inputs:
-          SonarQube: '8558c047-0dc9-477d-bd33-ee105cac4c6e'
-          scannerMode: 'CLI'
-          configMode: 'file'
-      - task: SonarQubeAnalyze@4
-      - task: SonarQubePublish@4
-        inputs:
-          pollingTimeoutSec: '300'
+
 - stage: Release
   # Use this condition temporarily to run even if SonarQube stage fails
   condition: succeededOrFailed()
