@@ -20,7 +20,8 @@ variables:
   azureSubscriptionEndpoint: '2af7a151-ec0d-499b-b15b-e5b41f4351ca'
   #'29eb505d-38be-4fb9-b8d6-62f6c236e64c'
   webAppName: 'c90079daas001magento'
-  storageAccount: 'c90079dsta001'
+  storageAccount: 'cs410032000ad076c46'
+  #'c90079dsta001'
   webroot: '/usr/share/nginx/html'
   db_server: 'c90079dmsq001'
   magento_cmd: 'docker run -e MYSQL_HOST=$MYSQL_HOST -e MYSQL_PASSWORD=$MYSQL_PASSWORD -e MYSQL_USER=$MYSQL_USER -e MYSQL_DATABASE=$MYSQL_DATABASE -v$(Pipeline.Workspace)/vendor:$(webroot)/magento2/vendor --entrypoint $(webroot)/magento2/bin/magento $(containerRegistry)/$(imageRepository):latest'
@@ -89,112 +90,51 @@ stages:
       - publish: $(System.DefaultWorkingDirectory)/magento2
         artifact: app
 
-#- stage: Release
-#  # Use this condition temporarily to run even if SonarQube stage fails
-#  condition: succeededOrFailed()
-#  displayName: Release to Dev
-#  jobs:  
-#  - job: Release
-#    displayName: Release
-#  - deployment: DeployToDev
-#    environment: $(webAppName)
-#    strategy:
-#      runOnce:
-#        deploy:
-#          steps:
-#          - download: current
-#            artifact: app
-#          - task: Docker@2
-#            displayName: Login to Azure Container Registry
-#            inputs:
-#              command: login
-#              containerRegistry: $(dockerRegistryServiceConnection)
-##          - task: Bash@3
-##            displayName: 'Backup Magento DB'
-##            inputs:
-##              targetType: 'inline'
-##              script: |
-##                $(magento_cmd) config:set system/backup/functionality_enabled 1 --lock-env
-##                $(magento_cmd) setup:backup --db --ansi --no-interaction --verbose 
-##            env:
-##              MYSQL_PASSWORD: $(DBBACKUP_PASS)
-##              MYSQL_HOST: $(MYSQL_HOST)
-##              MYSQL_USER: $(DBBACKUP_USER)
-##              MYSQL_DATABASE: $(MYSQL_DATABASE)
-##          - task: AzureCLI@2
-##            displayName: Upload sql to blob storage
-##            inputs:
-##              azureSubscription: $(azureSubscriptionEndpoint)
-##              scriptType: bash
-##              scriptLocation: inlineScript
-##              inlineScript: |
-##                mv $(System.DefaultWorkingDirectory)/magento2/var/backups/*_db.sql $(System.DefaultWorkingDirectory)/$(MYSQL_DATABASE)-$(tag).sql
-##                gzip $(System.DefaultWorkingDirectory)/$(MYSQL_DATABASE)-$(tag).sql
-##                az storage blob upload --account-name $(storageAccount) -f $(System.DefaultWorkingDirectory)/$(MYSQL_DATABASE)-$(tag).sql.gz -c $(dbBackupContainer) -n $(MYSQL_DATABASE)-$(tag).sql.gz
-##
-## TODO: Better to use a sync-like azcopy command rather than remove+copy
-#          - task: AzureCLI@2
- #           displayName: Delete and sync storage share - pub/media and pub/static
-#            inputs:
-#              azureSubscription: $(azureSubscriptionEndpoint)
-#              scriptType: bash
-#              scriptLocation: inlineScript
-#              inlineScript: |
-#                az storage remove --account-name $(storageAccount) -s magepubmedia --recursive
-#                az storage remove --account-name $(storageAccount) -s magepubstatic --recursive
-#                az storage copy --source-local-path "$(Pipeline.Workspace)/pub/media/*" --destination-account-name $(storageAccount) --destination-share magepubmedia --recursive
-#                az storage copy --source-local-path "$(Pipeline.Workspace)/pub/static/*" --destination-account-name $(storageAccount) --destination-share magepubstatic --recursive
+- stage: Release
+  # Use this condition temporarily to run even if SonarQube stage fails
+  condition: succeededOrFailed()
+  displayName: Release to Dev
+  jobs:  
+  - job: Release
+    displayName: Release
+  - deployment: DeployToDev
+    environment: $(webAppName)
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: app
+          - task: Docker@2
+            displayName: Login to Azure Container Registry
+            inputs:
+              command: login
+              containerRegistry: $(dockerRegistryServiceConnection)
 
-#          - task: AzureCLI@2
-#            displayName: Delete and sync storage share - vendor, generated, app
-#            inputs:
-#              azureSubscription: $(azureSubscriptionEndpoint)
-#              scriptType: bash
-#              scriptLocation: inlineScript
-#              inlineScript: |
-#                az storage remove --account-name $(storageAccount) -s magevendor --recursive
-#                az storage remove --account-name $(storageAccount) -s magegenerated --recursive
-#                az storage remove --account-name $(storageAccount) -s mageapp --recursive
-#                az storage copy --source-local-path "$(Pipeline.Workspace)/vendor/*" --destination-account-name $(storageAccount) --destination-share magevendor --recursive
-#                az storage copy --source-local-path "$(Pipeline.Workspace)/generated/*" --destination-account-name $(storageAccount) --destination-share magegenerated --recursive
-#                az storage copy --source-local-path "$(Pipeline.Workspace)/app/*" --exclude-path "$(Pipeline.Workspace)/app/vendor/*" --exclude-path "$(Pipeline.Workspace)/app/generated/*" --destination-account-name $(storageAccount) --destination-share mageapp --recursive
+# TODO: Better to use a sync-like azcopy command rather than remove+copy
+          - task: AzureCLI@2
+            displayName: Delete and sync storage share - pub/media and pub/static
+            inputs:
+              azureSubscription: $(azureSubscriptionEndpoint)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az storage remove --account-name $(storageAccount) -s magepubmedia --recursive
+                az storage remove --account-name $(storageAccount) -s magepubstatic --recursive
+                az storage copy --source-local-path "$(Pipeline.Workspace)/pub/media/*" --destination-account-name $(storageAccount) --destination-share magepubmedia --recursive
+                az storage copy --source-local-path "$(Pipeline.Workspace)/pub/static/*" --destination-account-name $(storageAccount) --destination-share magepubstatic --recursive
 
-#          - task: Bash@3
-#            displayName: Magento Deploy - Upgrade Magento DB
-#            inputs:
-#              targetType: 'inline'
-#              script: docker-compose run deploy cloud-deploy
-#            env:
-#              MYSQL_PASSWORD: $(MYSQL_PASSWORD)
-#              MYSQL_HOST: $(MYSQL_HOST)
-#              MYSQL_USER: $(MYSQL_USER)
-#              MYSQL_DATABASE: $(MYSQL_DATABASE)
+          - task: AzureCLI@2
+            displayName: Delete and sync storage share - vendor, generated, app
+            inputs:
+              azureSubscription: $(azureSubscriptionEndpoint)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az storage remove --account-name $(storageAccount) -s magevendor --recursive
+                az storage remove --account-name $(storageAccount) -s magegenerated --recursive
+                az storage remove --account-name $(storageAccount) -s mageapp --recursive
+                az storage copy --source-local-path "$(Pipeline.Workspace)/vendor/*" --destination-account-name $(storageAccount) --destination-share magevendor --recursive
+                az storage copy --source-local-path "$(Pipeline.Workspace)/generated/*" --destination-account-name $(storageAccount) --destination-share magegenerated --recursive
+                az storage copy --source-local-path "$(Pipeline.Workspace)/app/*" --exclude-path "$(Pipeline.Workspace)/app/vendor/*" --exclude-path "$(Pipeline.Workspace)/app/generated/*" --destination-account-name $(storageAccount) --destination-share mageapp --recursive
 
-##
-## TODO: sync env-config/varnish.vcl to magevarnishconf volume or add to terraform
-## TODO: sync env-config/default.conf to magenginxconf volume or add to terraform
-##
-
-#          - task: Bash@3
-#            displayName: Magento Deploy - Upgrade Magento DB
-#            inputs:
-#              targetType: 'inline'
-#              script: docker-compose run deploy cloud-deploy
-#            env:
-#              MYSQL_PASSWORD: $(MYSQL_PASSWORD)
-#              MYSQL_HOST: $(MYSQL_HOST)
-#              MYSQL_USER: $(MYSQL_USER)
-#              MYSQL_DATABASE: $(MYSQL_DATABASE)
-          
-#          - task: Bash@3
-#            displayName: Magento Post-Deploy - warm cache
-#            inputs:
-#              targetType: 'inline'
-#              script: |
-#                docker-compose run deploy cloud-post-deploy
-#                docker-compose run deploy magento-command cache:clean
-#            env:
-#              MYSQL_PASSWORD: $(MYSQL_PASSWORD)
-#              MYSQL_HOST: $(MYSQL_HOST)
-#              MYSQL_USER: $(MYSQL_USER)
-#              MYSQL_DATABASE: $(MYSQL_DATABASE)
